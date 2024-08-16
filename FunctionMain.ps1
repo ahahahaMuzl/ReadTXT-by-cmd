@@ -1,9 +1,12 @@
 $bookPath = $args[0]
-$bookMarkPath = $args[1]
+$bookName = [System.IO.Path]::GetFileNameWithoutExtension( $bookPath )
+$bookmarkFolderPath = "$PSScriptRoot\bookmark"
+$bookmarkPath = "$bookmarkFolderPath\$bookName.bookmark"
 
-#通用配置
-$showLineCnt = 5        # 每次显示行数
-$showLineSize = 50      # 每次显示字数
+# 通用配置
+$showLineCnt = 5                        # 每次显示行数
+$showLineSize = 50                      # 每次显示字数
+$clearBookmarkWhenReadFinish = $true    # 完成阅读后清除书签内容
 
 # 文件不存在提示并退出
 if( -not( Test-Path -Path $bookPath ) )
@@ -12,32 +15,38 @@ if( -not( Test-Path -Path $bookPath ) )
     exit
 }
 
-# 书签不存在进行创建
-if( -not( Test-Path -Path $bookMarkPath ) )
+# 创建书签文件夹
+if( -not( Test-Path -Path $bookmarkFolderPath ) )
 {
-    New-Item -Path $bookMarkPath -ItemType File -Force
-    "0" | Set-Content -Path $bookMarkPath -Force
+    New-Item -Path $bookmarkFolderPath -ItemType Directory -Force
+}
+
+# 书签不存在进行创建
+if( -not( Test-Path -Path $bookmarkPath ) )
+{
+    New-Item -Path $bookmarkPath -ItemType File -Force
+    "0" | Set-Content -Path $bookmarkPath -Force
 }
 
 # 加载全部文件内容
 $content = Get-Content -Path $bookPath -Raw
-$chunks = [System.Text.RegularExpressions.Regex]::Matches($content, ".{1,$showLineSize}")
+$chunks = [System.Text.RegularExpressions.Regex]::Matches( $content, ".{1,$showLineSize}" )
 
 # 获取书签并再次写入确保书签内容正确
-$mark = Get-Content $bookMarkPath -TotalCount 1
+$mark = Get-Content $bookmarkPath -TotalCount 1
 if( $mark -eq $null )
 {
     $mark = 0
 }
 else
 {
-    $mark = [int]$mark.Split(' ')[0]
+    $mark = [int]$mark.Split( ' ' )[0]
 }
 if( $mark -ge $chunks.Count )
 {
     $mark = 0
 }
-$mark | Set-Content -Path $bookMarkPath -Force
+$mark | Set-Content -Path $bookmarkPath -Force
 
 # 遍历并显示每个块
 $showCnt = 0                # 当次已显示行数
@@ -53,6 +62,10 @@ while( $true )
     if( $curMark -ge $chunks.Count )
     {
         Write-Host "----------- 已至最后一页 ------------"
+        if( $clearBookmarkWhenReadFinish -eq $true )
+        {
+            0 | Set-Content -Path $bookmarkPath -Force
+        }
     }
     else
     {
@@ -90,7 +103,7 @@ while( $true )
             Clear-Host
             $curMark = 0
             $mark = 0
-            $mark | Set-Content -Path $bookMarkPath -Force
+            $mark | Set-Content -Path $bookmarkPath -Force
             continue
         }
         # 处理查找
@@ -183,7 +196,7 @@ while( $true )
             }
 
             $mark = $curMark
-            $mark | Set-Content -Path $bookMarkPath -Force
+            $mark | Set-Content -Path $bookmarkPath -Force
             continue
         }
         # 空格键 内容快速清除
@@ -194,7 +207,7 @@ while( $true )
             continue
         }
         Clear-Host
-        $curMark - $showLineCnt | Set-Content -Path $bookMarkPath -Force
+        $curMark - $showLineCnt | Set-Content -Path $bookmarkPath -Force
         exit
     }
 }
